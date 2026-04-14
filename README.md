@@ -127,14 +127,7 @@ When you submit code:
 
 This means the mentor becomes more personalised the more you use it.
 
-## What it catches
 
-Tested against:
-- Basic issues: `range(len())`, mutable default arguments, bad variable names
-- Security: SQL injection, hardcoded credentials, missing input validation
-- Architecture: SRP violations, tight coupling, missing abstractions
-- Concurrency: deadlocks from incorrect lock ordering, bare `except` clauses
-- Language-specific: `var` vs `const` in JS, missing `async/await`, Python gotchas
 
 
 
