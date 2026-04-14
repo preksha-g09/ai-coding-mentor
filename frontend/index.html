@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodePulse — AI Code Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,400;0,9..144,600;1,9..144,200;1,9..144,400&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f5f0;--bg2:#efecea;--bg3:#e8e5de;
+  --ink:#0f0e0c;--ink2:#4a4740;--ink3:#9a9590;
+  --accent:#1a0a3d;--violet:#5b21b6;--violet-mid:#7c3aed;--violet-light:#ede9fe;
+  --amber:#b45309;--border:#e0ddd6;--border2:#ccc9c0;
+  --sh:0 1px 3px rgba(15,14,12,.06),0 4px 16px rgba(15,14,12,.04);
+  --sh-lg:0 8px 40px rgba(15,14,12,.10),0 2px 8px rgba(15,14,12,.06);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Geist',sans-serif;background:var(--bg);color:var(--ink);overflow-x:hidden;cursor:none}
+
+#cursor{position:fixed;width:9px;height:9px;border-radius:50%;background:var(--violet-mid);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s;mix-blend-mode:multiply}
+#cursor-ring{position:fixed;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--violet-mid);pointer-events:none;z-index:9998;transform:translate(-50%,-50%);opacity:.4;transition:width .2s,height .2s,opacity .2s}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:18px 48px;display:flex;align-items:center;justify-content:space-between;background:rgba(247,245,240,.85);backdrop-filter:blur(14px);border-bottom:1px solid transparent;transition:border-color .3s}
+nav.scrolled{border-color:var(--border)}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-mark{width:32px;height:32px;border-radius:9px;background:var(--accent);display:grid;place-items:center;font-size:15px;box-shadow:0 2px 10px rgba(26,10,61,.2)}
+.nav-wordmark{font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-.03em}
+.nav-right{display:flex;align-items:center;gap:22px}
+.nav-link{font-size:13px;color:var(--ink2);text-decoration:none;transition:color .15s;letter-spacing:-.01em}
+.nav-link:hover{color:var(--ink)}
+.nav-cta{padding:8px 20px;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:500;text-decoration:none;transition:all .18s;letter-spacing:-.01em}
+.nav-cta:hover{background:var(--violet);transform:translateY(-1px);box-shadow:0 4px 20px rgba(91,33,182,.25)}
+
+/* grain */
+.grain{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.028;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px}
+
+canvas#crystal{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:120px 48px 80px}
+
+.hero-content{position:relative;z-index:10;max-width:820px;text-align:center}
+
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--violet);margin-bottom:28px;padding:5px 14px;background:var(--violet-light);border:1px solid rgba(91,33,182,.18);border-radius:99px}
+.eyebrow-dot{width:5px;height:5px;border-radius:50%;background:var(--violet);animation:throb 2.5s ease infinite}
+@keyframes throb{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.5}}
+
+h1{font-family:'Fraunces',serif;font-size:clamp(52px,8vw,96px);font-weight:200;line-height:.98;letter-spacing:-.05em;color:var(--ink);margin-bottom:0}
+h1 .line2{font-style:italic;color:var(--violet);display:block;margin-top:4px}
+h1 .line3{font-weight:600;display:block;margin-top:6px}
+
+.hero-sub{font-size:clamp(15px,1.8vw,18px);color:var(--ink2);max-width:460px;margin:28px auto 44px;line-height:1.7;font-weight:300}
+
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-primary{padding:15px 36px;border-radius:11px;background:var(--accent);color:#fff;font-size:15px;font-weight:500;border:none;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:9px;letter-spacing:-.02em;transition:all .2s;box-shadow:0 2px 8px rgba(26,10,61,.18)}
+.btn-primary:hover{background:var(--violet);transform:translateY(-2px);box-shadow:0 10px 36px rgba(91,33,182,.28)}
+.btn-ghost{padding:14px 28px;border-radius:11px;background:transparent;color:var(--ink2);font-size:15px;border:1px solid var(--border2);cursor:pointer;text-decoration:none;letter-spacing:-.01em;transition:all .2s}
+.btn-ghost:hover{border-color:var(--ink2);color:var(--ink);transform:translateY(-1px)}
+
+.scroll-hint{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);z-index:10;animation:bob 3s ease infinite}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(7px)}}
+.scroll-line{width:1px;height:36px;background:linear-gradient(to bottom,var(--border2),transparent)}
+
+/* ── FEATURES ── */
+#features{padding:120px 48px;background:var(--bg);position:relative}
+.section-header{text-align:center;margin-bottom:72px}
+.overline{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin-bottom:14px}
+.section-title{font-family:'Fraunces',serif;font-size:clamp(36px,5vw,58px);font-weight:200;letter-spacing:-.04em;color:var(--ink);line-height:1.05}
+.section-title em{font-style:italic;color:var(--violet)}
+
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;max-width:1080px;margin:0 auto}
+.bc{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:30px;overflow:hidden;position:relative;transition:all .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh)}
+.bc:hover{border-color:var(--border2);box-shadow:var(--sh-lg);transform:translateY(-4px)}
+.b7{grid-column:span 7}.b5{grid-column:span 5}.b4{grid-column:span 4}.b6{grid-column:span 6}.b8{grid-column:span 8}.b12{grid-column:span 12}
+
+.ctag{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.ctag::before{content:'';width:14px;height:1px;background:var(--border2)}
+.chead{font-family:'Fraunces',serif;font-size:24px;font-weight:400;letter-spacing:-.03em;color:var(--ink);line-height:1.2;margin-bottom:10px}
+.cbody{font-size:13px;color:var(--ink2);line-height:1.7;font-weight:300}
+
+.mem-viz{display:flex;flex-direction:column;gap:9px;margin-top:18px}
+.mem-row{display:flex;align-items:center;gap:10px;font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3)}
+.mem-track{flex:1;height:3px;background:var(--border);border-radius:99px;overflow:hidden}
+.mem-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--violet-mid),var(--violet));animation:grow .8s .4s cubic-bezier(.4,0,.2,1) both}
+@keyframes grow{from{width:0%}to{width:var(--w)}}
+
+.mode-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:18px}
+.mpill{padding:5px 12px;border-radius:99px;font-size:11.5px;font-family:'Geist Mono',monospace;border:1px solid var(--border2);color:var(--ink2);background:var(--bg);transition:all .15s}
+.bc:hover .mpill{border-color:rgba(91,33,182,.3);color:var(--violet-mid)}
+
+.hmap{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:18px}
+.hc{aspect-ratio:1;border-radius:5px}
+.h5{background:rgba(91,33,182,.92)}.h4{background:rgba(91,33,182,.65)}.h3{background:rgba(91,33,182,.4)}.h2{background:rgba(91,33,182,.2)}.h1{background:rgba(91,33,182,.09)}.h0{background:var(--border)}
+
+.stream-wrap{margin-top:18px;font-family:'Geist Mono',monospace;font-size:11.5px;line-height:2;color:var(--ink3);position:relative;overflow:hidden;max-height:76px;background:var(--bg3);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+.stream-wrap span{opacity:0;animation:tok .3s ease forwards}
+@keyframes tok{to{opacity:1}}
+.stream-fade{position:absolute;bottom:0;left:0;right:0;height:32px;background:linear-gradient(transparent,var(--bg3))}
+
+.accent-card{background:var(--accent);border-color:transparent}
+.accent-card .ctag,.accent-card .chead,.accent-card .cbody{color:rgba(255,255,255,.9)}
+.accent-card .ctag{color:rgba(255,255,255,.35)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.6);display:inline-block;margin-right:6px;animation:blink-g 2s ease infinite}
+@keyframes blink-g{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── HOW IT WORKS ── */
+#how{padding:100px 48px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:48px;max-width:860px;margin:0 auto;position:relative}
+.steps::before{content:'';position:absolute;top:27px;left:calc(16.7%);right:calc(16.7%);height:1px;background:var(--border2)}
+.step{text-align:center}
+.step-num{width:54px;height:54px;border-radius:50%;background:var(--bg);border:1.5px solid var(--border2);display:grid;place-items:center;margin:0 auto 18px;font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:var(--violet-mid);position:relative;z-index:1;box-shadow:var(--sh)}
+.step-label{font-family:'Fraunces',serif;font-size:18px;font-weight:400;letter-spacing:-.02em;color:var(--ink);margin-bottom:8px}
+.step-desc{font-size:13px;color:var(--ink2);line-height:1.65;font-weight:300}
+
+/* ── FOOTER ── */
+footer{padding:36px 48px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg2)}
+.foot-wordmark{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:var(--ink);letter-spacing:-.03em}
+.foot-stack{display:flex;gap:7px;flex-wrap:wrap}
+.fpill{font-size:10.5px;font-family:'Geist Mono',monospace;color:var(--ink3);border:1px solid var(--border);border-radius:6px;padding:3px 9px}
+.foot-link{font-size:13px;color:var(--ink3);text-decoration:none;transition:color .15s}
+.foot-link:hover{color:var(--ink)}
+
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .75s ease,transform .75s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.d1{transition-delay:.08s}.d2{transition-delay:.16s}.d3{transition-delay:.24s}.d4{transition-delay:.32s}
+
+@media(max-width:768px){
+  nav{padding:14px 20px}
+  .hero,.#features,#how{padding:80px 20px 60px}
+  #features,#how{padding:80px 20px}
+  .bento,.steps{display:block}
+  .bc{margin-bottom:12px}
+  .step{margin-bottom:32px}
+  .steps::before{display:none}
+  footer{flex-direction:column;gap:16px;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<div class="grain"></div>
+<canvas id="crystal"></canvas>
+
+<nav id="navbar">
+  <a class="nav-logo" href="#">
+    <div class="nav-mark">⬡</div>
+    <span class="nav-wordmark">CodePulse</span>
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="#features">Features</a>
+    <a class="nav-link" href="#how">How it works</a>
+    <a class="nav-cta" href="app.html">Open app →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-content">
+    <div class="eyebrow reveal"><span class="eyebrow-dot"></span>runs on your machine · zero api cost</div>
+    <h1 class="reveal d1">
+      Your code,
+      <span class="line2">reviewed right.</span>
+      <span class="line3">Instantly.</span>
+    </h1>
+    <p class="hero-sub reveal d2">
+      Paste any code. Get sharp, structured feedback from Llama 3.1 — with memory that tracks your patterns across every session.
+    </p>
+    <div class="cta-row reveal d3">
+      <a class="btn-primary" href="app.html">
+        Start reviewing
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="btn-ghost" id="featBtn" href="#features">See features</a>
+    </div>
+  </div>
+  <div class="scroll-hint"><div class="scroll-line"></div><span>scroll</span></div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-header reveal">
+    <div class="overline">What it does</div>
+    <h2 class="section-title">Everything your code<br>needs to get <em>better</em></h2>
+  </div>
+  <div class="bento reveal d1">
+
+    <div class="bc b7">
+      <div class="ctag">persistent memory</div>
+      <h3 class="chead">Remembers every weakness<br>you've ever had</h3>
+      <p class="cbody">ChromaDB vector search stores your mistake fingerprint across sessions. CodePulse knows your patterns before you paste a line.</p>
+      <div class="mem-viz">
+        <div class="mem-row"><span>error handling</span><div class="mem-track"><div class="mem-fill" style="--w:84%"></div></div><span>12×</span></div>
+        <div class="mem-row"><span>null safety</span><div class="mem-track"><div class="mem-fill" style="--w:62%"></div></div><span>9×</span></div>
+        <div class="mem-row"><span>sql injection</span><div class="mem-track"><div class="mem-fill" style="--w:42%"></div></div><span>6×</span></div>
+        <div class="mem-row"><span>complexity</span><div class="mem-track"><div class="mem-fill" style="--w:26%"></div></div><span>4×</span></div>
+      </div>
+    </div>
+
+    <div class="bc b5 accent-card">
+      <div class="ctag">private by design</div>
+      <h3 class="chead" style="font-size:21px;color:#fff">Your code never leaves<br>your machine</h3>
+      <p class="cbody" style="color:rgba(255,255,255,.55);font-size:13px">No API keys. No cloud. Llama 3.1 runs via Ollama on your own GPU.</p>
+      <div style="display:inline-flex;align-items:center;margin-top:18px;padding:8px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:10px;font-size:12px;font-family:'Geist Mono',monospace;color:rgba(255,255,255,.6)">
+        <span class="live-dot"></span>localhost:11434 · active
+      </div>
+    </div>
+
+    <div class="bc b4">
+      <div class="ctag">review modes</div>
+      <h3 class="chead">6 lenses,<br>one codebase</h3>
+      <div class="mode-pills">
+        <span class="mpill">🔥 Roast</span><span class="mpill">🎓 Mentor</span><span class="mpill">⚡ Speed</span><span class="mpill">🔒 Security</span><span class="mpill">📐 Arch</span><span class="mpill">🧪 Tests</span>
+      </div>
+    </div>
+
+    <div class="bc b4">
+      <div class="ctag">streaming output</div>
+      <h3 class="chead">Token by<br>token. Live.</h3>
+      <div class="stream-wrap" id="streamDemo">
+        <span>##</span><span style="animation-delay:.15s"> Overall</span><span style="animation-delay:.3s"> —</span><span style="animation-delay:.45s"> your</span><span style="animation-delay:.6s"> error</span><span style="animation-delay:.75s"> handling</span><span style="animation-delay:.9s"> is</span><span style="animation-delay:1.05s"> missing</span><span style="animation-delay:1.2s"> on</span><span style="animation-delay:1.35s"> line</span><span style="animation-delay:1.5s"> 14...</span>
+        <div class="stream-fade"></div>
+      </div>
+    </div>
+
+    <div class="bc b4">
+      <div class="ctag">weakness heatmap</div>
+      <h3 class="chead">See exactly<br>where you slip</h3>
+      <div class="hmap">
+        <div class="hc h5"></div><div class="hc h3"></div><div class="hc h1"></div><div class="hc h4"></div><div class="hc h2"></div><div class="hc h1"></div><div class="hc h3"></div>
+        <div class="hc h2"></div><div class="hc h5"></div><div class="hc h4"></div><div class="hc h1"></div><div class="hc h3"></div><div class="hc h5"></div><div class="hc h2"></div>
+        <div class="hc h1"></div><div class="hc h2"></div><div class="hc h4"></div><div class="hc h5"></div><div class="hc h1"></div><div class="hc h3"></div><div class="hc h4"></div>
+      </div>
+    </div>
+
+    <div class="bc b6">
+      <div class="ctag">auto-fix</div>
+      <h3 class="chead">Get a corrected rewrite,<br>not just suggestions</h3>
+      <p class="cbody">Every review ends with a fully fixed version of your code. One click to copy. No guesswork.</p>
+    </div>
+
+    <div class="bc b6">
+      <div class="ctag">8 languages</div>
+      <h3 class="chead">One workflow for<br>every stack</h3>
+      <p class="cbody">Python · JavaScript · TypeScript · Java · C++ · Go · Rust · Swift — reviewed with language-specific expertise baked into every prompt.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-header reveal" style="margin-bottom:56px">
+    <div class="overline">Process</div>
+    <h2 class="section-title" style="font-size:clamp(30px,4vw,48px)">Three steps to<br><em>writing better code</em></h2>
+  </div>
+  <div class="steps">
+    <div class="step reveal d1">
+      <div class="step-num">1</div>
+      <div class="step-label">Paste your code</div>
+      <p class="step-desc">Drop any snippet into the editor. Pick a language and a review mode. Hit ⌃↵.</p>
+    </div>
+    <div class="step reveal d2">
+      <div class="step-num">2</div>
+      <div class="step-label">Llama 3.1 reviews it</div>
+      <p class="step-desc">Feedback streams token by token, with your past weak spots pulled from memory automatically.</p>
+    </div>
+    <div class="step reveal d3">
+      <div class="step-num">3</div>
+      <div class="step-label">Track your growth</div>
+      <p class="step-desc">The weakness heatmap updates. Session history builds. You improve with every review.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-wordmark">CodePulse</div>
+  <div class="foot-stack">
+    <span class="fpill">Llama 3.1 8B</span><span class="fpill">ChromaDB</span><span class="fpill">FastAPI</span><span class="fpill">LangChain</span><span class="fpill">sentence-transformers</span>
+  </div>
+  <a class="foot-link" href="app.html">Open app →</a>
+</footer>
+
+<script>
+/* cursor */
+const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px'});
+(function anim(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(anim)})();
+document.querySelectorAll('a,button,.bc').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{cur.style.width='5px';cur.style.height='5px';ring.style.width='50px';ring.style.height='50px';ring.style.opacity='.75'});
+  el.addEventListener('mouseleave',()=>{cur.style.width='9px';cur.style.height='9px';ring.style.width='34px';ring.style.height='34px';ring.style.opacity='.4'});
+});
+
+/* nav scroll */
+window.addEventListener('scroll',()=>document.getElementById('navbar').classList.toggle('scrolled',scrollY>40));
+
+/* reveal */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')}),{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+document.querySelectorAll('.hero .reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('visible'),i*140+80));
+
+/* See features scroll */
+document.getElementById('featBtn').addEventListener('click',e=>{e.preventDefault();document.getElementById('features').scrollIntoView({behavior:'smooth'})});
+
+/* streaming demo loop */
+const snippets=[
+  ['##',' Overall',' —',' error',' handling',' is',' missing',' on',' line',' 14...'],
+  ['##',' Issues',' —',' `getUser`',' has',' no',' null',' check',' on',' input...'],
+  ['##',' Fixed',' —',' add',' try/catch',' around',' the',' db.query',' call...'],
+];
+let si=0;
+function runStream(){
+  const el=document.getElementById('streamDemo');if(!el)return;
+  const tokens=snippets[si%snippets.length];si++;
+  el.innerHTML='';
+  tokens.forEach((tok,i)=>{const s=document.createElement('span');s.textContent=tok;s.style.animationDelay=(i*0.14)+'s';el.appendChild(s)});
+  const f=document.createElement('div');f.className='stream-fade';el.appendChild(f);
+}
+runStream();setInterval(runStream,3800);
+
+/* ── 3D CRYSTALLINE ── */
+const canvas=document.getElementById('crystal'),ctx2=canvas.getContext('2d');
+let W,H,nodes=[],edges=[],mouse2={x:0,y:0},t=0;
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
+
+function build(){
+  nodes=[];edges=[];
+  const g=(1+Math.sqrt(5))/2,len=Math.sqrt(1+g*g);
+  const ico=[[0,1,g],[0,-1,g],[0,1,-g],[0,-1,-g],[1,g,0],[-1,g,0],[1,-g,0],[-1,-g,0],[g,0,1],[g,0,-1],[-g,0,1],[-g,0,-1]];
+  ico.forEach(v=>nodes.push({ox:v[0]/len,oy:v[1]/len,oz:v[2]/len,r:3.5,t:'v'}));
+  for(let i=0;i<12;i++)for(let j=i+1;j<12;j++){
+    const dx=ico[i][0]-ico[j][0],dy=ico[i][1]-ico[j][1],dz=ico[i][2]-ico[j][2],d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(d<2.2){
+      edges.push([i,j]);
+      const mx2=(ico[i][0]+ico[j][0])/2/len,my2=(ico[i][1]+ico[j][1])/2/len,mz2=(ico[i][2]+ico[j][2])/2/len;
+      const ml=Math.sqrt(mx2*mx2+my2*my2+mz2*mz2);
+      const ni=nodes.length;nodes.push({ox:mx2/ml,oy:my2/ml,oz:mz2/ml,r:1.8,t:'e'});
+      edges.push([i,ni]);edges.push([j,ni]);
+    }
+  }
+  const inner=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]],base=nodes.length;
+  inner.forEach(v=>nodes.push({ox:v[0]*.42,oy:v[1]*.42,oz:v[2]*.42,r:2.2,t:'i'}));
+  for(let i=base;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++)edges.push([i,j]);
+    let best=-1,bd=999;
+    for(let k=0;k<12;k++){const dx=nodes[i].ox-nodes[k].ox,dy=nodes[i].oy-nodes[k].oy,dz=nodes[i].oz-nodes[k].oz,d=Math.sqrt(dx*dx+dy*dy+dz*dz);if(d<bd){bd=d;best=k}}
+    if(best>=0)edges.push([i,best]);
+  }
+}
+
+function proj(ox,oy,oz,cx,cy,r,rx,ry){
+  const x1=ox*Math.cos(ry)+oz*Math.sin(ry),z1=-ox*Math.sin(ry)+oz*Math.cos(ry);
+  const y1=oy*Math.cos(rx)-z1*Math.sin(rx),z2=oy*Math.sin(rx)+z1*Math.cos(rx);
+  const s=820/(820+z2*r*.55);
+  return{sx:cx+x1*r*s,sy:cy+y1*r*s,z:z2,s,vis:z2>-1.2};
+}
+
+function draw(){
+  ctx2.clearRect(0,0,W,H);t+=0.004;
+  const cx=W/2,cy=H*.45,r=Math.min(W,H)*.27;
+  const ry=t+(mouse2.x-cx)*.00014,rx=(mouse2.y-cy)*.00014-.15;
+  const ps=nodes.map(n=>proj(n.ox,n.oy,n.oz,cx,cy,r,rx,ry));
+
+  for(const[i,j]of edges){
+    const a=ps[i],b=ps[j];if(!a?.vis||!b?.vis)continue;
+    const az=(a.z+b.z)/2,alpha=Math.max(0,(az+1.2)/2.4);
+    const g=ctx2.createLinearGradient(a.sx,a.sy,b.sx,b.sy);
+    g.addColorStop(0,`rgba(91,33,182,${(alpha*.2).toFixed(3)})`);
+    g.addColorStop(1,`rgba(15,14,12,${(alpha*.07).toFixed(3)})`);
+    ctx2.beginPath();ctx2.moveTo(a.sx,a.sy);ctx2.lineTo(b.sx,b.sy);
+    ctx2.strokeStyle=g;ctx2.lineWidth=.9;ctx2.stroke();
+  }
+
+  for(let i=0;i<nodes.length;i++){
+    const p=ps[i],n=nodes[i];if(!p.vis)continue;
+    const alpha=Math.max(0,(p.z+1.2)/2.4),sz=n.r*p.s;
+    if(n.t==='v'){
+      const g=ctx2.createRadialGradient(p.sx,p.sy,0,p.sx,p.sy,sz*4.5);
+      g.addColorStop(0,`rgba(91,33,182,${(alpha*.16).toFixed(3)})`);
+      g.addColorStop(1,'rgba(91,33,182,0)');
+      ctx2.beginPath();ctx2.arc(p.sx,p.sy,sz*4.5,0,Math.PI*2);ctx2.fillStyle=g;ctx2.fill();
+      ctx2.beginPath();ctx2.arc(p.sx,p.sy,sz,0,Math.PI*2);
+      ctx2.fillStyle=`rgba(91,33,182,${(alpha*.9).toFixed(3)})`;ctx2.fill();
+      ctx2.beginPath();ctx2.arc(p.sx-sz*.28,p.sy-sz*.28,sz*.32,0,Math.PI*2);
+      ctx2.fillStyle=`rgba(255,255,255,${(alpha*.55).toFixed(3)})`;ctx2.fill();
+    } else if(n.t==='e'){
+      ctx2.beginPath();ctx2.arc(p.sx,p.sy,sz,0,Math.PI*2);
+      ctx2.fillStyle=`rgba(124,58,237,${(alpha*.5).toFixed(3)})`;ctx2.fill();
+    } else {
+      ctx2.beginPath();ctx2.arc(p.sx,p.sy,sz,0,Math.PI*2);
+      ctx2.fillStyle=`rgba(180,83,9,${(alpha*.65).toFixed(3)})`;ctx2.fill();
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+window.addEventListener('mousemove',e=>{mouse2.x=e.clientX;mouse2.y=e.clientY});
+window.addEventListener('resize',()=>{resize();build()});
+resize();build();draw();
+</script>
+</body>
+</html>

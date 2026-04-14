@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodePulse — Code Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,400;0,9..144,600;1,9..144,200&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f5f0;--surface:#faf9f6;--surface2:#f0ede6;--surface3:#e8e5de;
+  --ink:#0f0e0c;--ink2:#4a4740;--ink3:#9a9590;--ink4:#c4bfb8;
+  --violet:#5b21b6;--violet-mid:#7c3aed;--violet-h:#6d28d9;--violet-light:#ede9fe;
+  --accent:#1a0a3d;
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  --code-bg:#16131f;--code-text:#ddd8f0;
+  --border:#e0ddd6;--border2:#ccc9c0;
+  --sh-sm:0 1px 3px rgba(15,14,12,.06),0 2px 8px rgba(15,14,12,.04);
+  --sh-md:0 2px 12px rgba(15,14,12,.08),0 8px 28px rgba(15,14,12,.06);
+  --sh-lg:0 4px 24px rgba(15,14,12,.1),0 16px 48px rgba(15,14,12,.08);
+}
+html,body{height:100%;font-family:'Geist',sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;cursor:none}
+ 
+#cursor{position:fixed;width:9px;height:9px;border-radius:50%;background:var(--violet-mid);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:multiply;transition:width .2s,height .2s}
+#cursor-ring{position:fixed;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--violet-mid);pointer-events:none;z-index:9998;transform:translate(-50%,-50%);opacity:.35;transition:width .2s,height .2s,opacity .2s}
+ 
+.grain{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.022;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px}
+ 
+.app{display:grid;grid-template-rows:auto auto 1fr auto;min-height:100vh;position:relative;z-index:2}
+ 
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;background:rgba(247,245,240,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:32px;height:32px;border-radius:9px;background:var(--accent);display:grid;place-items:center;font-size:15px;box-shadow:0 2px 10px rgba(26,10,61,.2);flex-shrink:0}
+.logo-text{display:flex;flex-direction:column}
+.logo-name{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--ink);letter-spacing:-.03em;line-height:1}
+.logo-sub{font-size:10px;font-family:'Geist Mono',monospace;color:var(--ink3);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.shortcut-hint{font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 9px}
+.back-link{font-size:12px;color:var(--ink3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color .15s;font-family:'Geist Mono',monospace}
+.back-link:hover{color:var(--ink)}
+ 
+/* ── FACTBAR ── */
+.factbar{display:flex;align-items:center;gap:10px;padding:7px 32px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.fact-tag{font-size:9px;font-weight:500;letter-spacing:.1em;font-family:'Geist Mono',monospace;background:var(--violet-mid);color:#fff;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.fact-text{font-size:12px;color:var(--ink2);font-style:italic;flex:1;font-family:'Geist',sans-serif}
+.fact-btn{font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3);background:none;border:none;cursor:pointer;padding:3px 8px;border-radius:6px;transition:color .15s}
+.fact-btn:hover{color:var(--violet-mid)}
+ 
+/* ── MAIN GRID ── */
+.main{display:grid;grid-template-columns:1fr 320px;gap:0;align-items:start}
+.panel-left{padding:24px 20px 28px 32px;border-right:1px solid var(--border)}
+.panel-right{padding:24px 32px 28px 20px;background:var(--surface)}
+ 
+.sec-label{font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-family:'Geist Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+ 
+/* ── LANG BUTTONS ── */
+.lang-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.lang-btn{padding:5px 13px;border-radius:8px;font-size:12px;font-family:'Geist Mono',monospace;border:1px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;transition:all .15s;letter-spacing:-.01em}
+.lang-btn:hover{border-color:var(--border2);color:var(--ink)}
+.lang-btn.active{background:var(--violet-light);border-color:rgba(91,33,182,.3);color:var(--violet-mid);font-weight:500}
+ 
+/* ── MODE CARDS ── */
+.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:20px}
+.mode-card{padding:12px 8px;border-radius:10px;border:1px solid var(--border);background:var(--surface);text-align:center;cursor:pointer;transition:all .18s;box-shadow:var(--sh-sm)}
+.mode-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--sh-md)}
+.mode-card.active{background:var(--violet-light);border-color:rgba(91,33,182,.22)}
+.mode-icon{font-size:19px;margin-bottom:5px}
+.mode-label{font-size:11px;font-weight:500;color:var(--ink2);font-family:'Geist',sans-serif}
+.mode-card.active .mode-label{color:var(--violet-mid)}
+.mode-desc{font-size:10px;color:var(--ink3);margin-top:3px;line-height:1.3;display:none;font-family:'Geist Mono',monospace}
+.mode-card.active .mode-desc{display:block;color:rgba(91,33,182,.6)}
+ 
+/* ── EDITOR ── */
+.editor-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--sh-md);margin-bottom:12px}
+.editor-chrome{display:flex;align-items:center;gap:7px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.dot{width:11px;height:11px;border-radius:50%}
+.chrome-meta{margin-left:auto;font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3)}
+.editor-body{display:flex;background:var(--code-bg)}
+.line-nums{width:44px;padding:16px 0;font-size:12.5px;font-family:'Geist Mono',monospace;line-height:1.8;color:rgba(255,255,255,.14);text-align:right;flex-shrink:0;user-select:none}
+.line-num{padding-right:12px;display:block}
+textarea#code{flex:1;background:transparent;border:none;outline:none;resize:none;padding:16px 16px 16px 8px;font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.8;color:var(--code-text);min-height:240px;caret-color:var(--violet-mid);tab-size:4}
+textarea#code::placeholder{color:rgba(255,255,255,.18)}
+.editor-footer{display:flex;justify-content:space-between;padding:6px 14px;background:var(--surface2);border-top:1px solid var(--border);font-size:10px;font-family:'Geist Mono',monospace;color:var(--ink3)}
+ 
+/* ── BUTTONS ── */
+.run-btn{flex:1;padding:13px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-family:'Geist',sans-serif;font-size:14px;font-weight:500;cursor:pointer;box-shadow:0 2px 8px rgba(26,10,61,.18);transition:all .18s;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
+.run-btn:hover{background:var(--violet);transform:translateY(-1px);box-shadow:0 6px 20px rgba(91,33,182,.28)}
+.run-btn:active{transform:translateY(0)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.stop-btn{padding:13px 18px;border:1.5px solid var(--red);border-radius:11px;background:transparent;color:var(--red);font-size:13px;cursor:pointer;font-family:'Geist',sans-serif;transition:all .15s;white-space:nowrap}
+.stop-btn:hover{background:rgba(239,68,68,.07)}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+ 
+/* ── SCORE RING ── */
+.score-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center;box-shadow:var(--sh-sm)}
+.score-meta{font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3);margin-top:8px}
+.score-grade{font-size:10px;margin-top:4px;font-weight:500;font-family:'Geist',sans-serif}
+ 
+/* ── HEATMAP ── */
+.heat-item{margin-bottom:12px}
+.heat-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.heat-name{font-size:12px;color:var(--ink2);font-family:'Geist Mono',monospace}
+.heat-cnt{font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3)}
+.heat-track{height:3px;background:var(--surface2);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
+.heat-bar{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--violet-mid),var(--violet));transition:width .9s cubic-bezier(.4,0,.2,1)}
+.empty-box{padding:24px;text-align:center;font-size:12px;font-family:'Geist Mono',monospace;color:var(--ink3);background:var(--surface2);border:1px solid var(--border);border-radius:12px}
+ 
+/* ── SESSIONS ── */
+.sess-list{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--sh-sm)}
+.sess-row{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--border);font-size:12px;transition:background .12s}
+.sess-row:hover{background:var(--surface2)}
+.sess-row:last-child{border-bottom:none}
+.sess-badge{padding:2px 7px;border-radius:5px;font-size:10px;font-weight:500;font-family:'Geist Mono',monospace}
+.sess-spot{color:var(--ink2);flex:1;font-size:12px}
+.sess-score{font-size:11px;font-family:'Geist Mono',monospace;font-weight:500}
+.sess-empty{padding:20px;font-size:12px;font-family:'Geist Mono',monospace;color:var(--ink3);text-align:center}
+ 
+/* ── REVIEW SECTION ── */
+.review-section{padding:28px 32px;border-top:2px solid var(--border);display:none}
+.review-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.review-title{font-family:'Fraunces',serif;font-size:18px;font-weight:400;letter-spacing:-.03em;display:flex;align-items:center;gap:10px;color:var(--ink)}
+.review-lang-badge{font-size:11px;font-family:'Geist Mono',monospace;padding:2px 9px;border-radius:5px;font-weight:500}
+.review-actions{display:flex;gap:8px}
+.action-btn{padding:6px 13px;border-radius:8px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;transition:all .15s;font-family:'Geist',sans-serif;display:flex;align-items:center;gap:5px}
+.action-btn:hover{border-color:var(--border2);color:var(--ink);transform:translateY(-1px)}
+.ws-badge{padding:4px 14px;border-radius:99px;background:var(--violet-light);border:1px solid rgba(91,33,182,.22);color:var(--violet-mid);font-size:11px;font-family:'Geist Mono',monospace;font-weight:500}
+ 
+/* ── REVIEW BODY ── */
+.review-body{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px;box-shadow:var(--sh-lg);line-height:1.85;color:var(--ink);min-height:60px}
+.review-body h2{font-family:'Fraunces',serif;font-size:15px;font-weight:400;letter-spacing:-.02em;color:var(--ink);margin:20px 0 9px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.review-body h2:first-child{margin-top:0}
+.review-body ul{padding-left:18px;margin:8px 0}
+.review-body li{margin-bottom:7px;color:var(--ink2);font-size:13.5px;line-height:1.7}
+.review-body strong{color:var(--violet-mid);font-weight:500}
+.review-body code{background:var(--violet-light);color:var(--violet-mid);padding:1px 6px;border-radius:4px;font-family:'Geist Mono',monospace;font-size:12px}
+.review-body p{margin-bottom:10px;font-size:13.5px;color:var(--ink2);line-height:1.75}
+.review-body pre{background:var(--code-bg);border-radius:10px;padding:16px;overflow-x:auto;margin:10px 0}
+.review-body pre code{background:none;color:var(--code-text);padding:0;font-size:12.5px}
+.cursor-blink{display:inline-block;width:2px;height:14px;background:var(--violet-mid);margin-left:2px;vertical-align:middle;animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+ 
+/* ── MEMORY CTX ── */
+.memory-ctx{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.memory-hdr{padding:9px 14px;font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3);cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .12s}
+.memory-hdr:hover{background:var(--border)}
+.memory-body{padding:12px 14px;font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink2);white-space:pre-wrap;border-top:1px solid var(--border);display:none}
+ 
+/* ── FIXED CODE ── */
+.fixed-section{margin-top:20px;display:none}
+.fixed-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.fixed-label{font-size:13px;font-family:'Fraunces',serif;font-weight:400;color:var(--ink);display:flex;align-items:center;gap:8px;letter-spacing:-.02em}
+.fixed-sub{font-size:11px;font-family:'Geist Mono',monospace;color:var(--ink3)}
+.fixed-copy{padding:5px 12px;border-radius:7px;font-size:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;font-family:'Geist Mono',monospace;transition:all .15s}
+.fixed-copy:hover{border-color:var(--border2);color:var(--ink)}
+.fixed-chrome{border-radius:12px;overflow:hidden;border:1px solid rgba(34,197,94,.2);box-shadow:0 2px 12px rgba(34,197,94,.06)}
+.fixed-bar{background:#162416;padding:10px 16px;border-bottom:1px solid rgba(34,197,94,.15);display:flex;align-items:center;gap:7px}
+.fixed-dot{width:10px;height:10px;border-radius:50%}
+.fixed-meta-label{margin-left:auto;font-size:11px;font-family:'Geist Mono',monospace;color:rgba(134,239,172,.35)}
+pre#fixedCode{background:#0d1b0d;padding:18px;font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.8;color:#86efac;overflow-x:auto;margin:0;white-space:pre}
+ 
+/* ── FOOTER ── */
+.footer{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);background:var(--surface2)}
+.foot-cell{padding:12px 20px;border-right:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.foot-cell:last-child{border-right:none}
+.foot-icon{font-size:14px}
+.foot-name{font-size:12px;font-weight:500;color:var(--ink);font-family:'Geist',sans-serif}
+.foot-type{font-size:10px;font-family:'Geist Mono',monospace;color:var(--ink3)}
+ 
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:999;font-family:'Geist',sans-serif}
+.toast.show{opacity:1;transform:translateY(0)}
+ 
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .35s ease}
+</style>
+</head>
+<body>
+ 
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<div class="grain"></div>
+ 
+<div class="app">
+ 
+<header class="topbar">
+  <a class="logo" href="index.html">
+    <div class="logo-mark">⬡</div>
+    <div class="logo-text">
+      <div class="logo-name">CodePulse</div>
+      <div class="logo-sub">llama3.1 · local · v2.0</div>
+    </div>
+  </a>
+  <div class="topbar-right">
+    <span class="shortcut-hint">⌃↵ to run</span>
+    <a class="back-link" href="index.html">← home</a>
+  </div>
+</header>
+ 
+<div class="factbar">
+  <span class="fact-tag">FACT</span>
+  <span class="fact-text" id="factText"></span>
+  <button class="fact-btn" onclick="nextFact()">next →</button>
+</div>
+ 
+<div class="main">
+  <div class="panel-left">
+ 
+    <div class="sec-label">language</div>
+    <div class="lang-row" id="langRow">
+      <button class="lang-btn active" data-lang="Python">Python</button>
+      <button class="lang-btn" data-lang="JavaScript">JavaScript</button>
+      <button class="lang-btn" data-lang="TypeScript">TypeScript</button>
+      <button class="lang-btn" data-lang="Java">Java</button>
+      <button class="lang-btn" data-lang="C++">C++</button>
+      <button class="lang-btn" data-lang="Go">Go</button>
+      <button class="lang-btn" data-lang="Rust">Rust</button>
+      <button class="lang-btn" data-lang="Swift">Swift</button>
+    </div>
+ 
+    <div class="sec-label">review mode</div>
+    <div class="mode-grid" id="modeGrid">
+      <div class="mode-card active" data-mode="roast">
+        <div class="mode-icon">🔥</div>
+        <div class="mode-label">Roast me</div>
+        <div class="mode-desc">zero mercy</div>
+      </div>
+      <div class="mode-card" data-mode="mentor">
+        <div class="mode-icon">🎓</div>
+        <div class="mode-label">Mentor</div>
+        <div class="mode-desc">explain the why</div>
+      </div>
+      <div class="mode-card" data-mode="speed">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-label">Speed</div>
+        <div class="mode-desc">bullets only</div>
+      </div>
+      <div class="mode-card" data-mode="security">
+        <div class="mode-icon">🔒</div>
+        <div class="mode-label">Security</div>
+        <div class="mode-desc">vulns only</div>
+      </div>
+      <div class="mode-card" data-mode="arch">
+        <div class="mode-icon">📐</div>
+        <div class="mode-label">Architecture</div>
+        <div class="mode-desc">SOLID & patterns</div>
+      </div>
+      <div class="mode-card" data-mode="tests">
+        <div class="mode-icon">🧪</div>
+        <div class="mode-label">Tests</div>
+        <div class="mode-desc">test cases</div>
+      </div>
+    </div>
+ 
+    <div class="sec-label">editor</div>
+    <div class="editor-wrap">
+      <div class="editor-chrome">
+        <div class="dot" style="background:#ff5f57"></div>
+        <div class="dot" style="background:#febc2e"></div>
+        <div class="dot" style="background:#28c840"></div>
+        <span class="chrome-meta" id="chromeMeta">mentor.py · Python · Roast me</span>
+      </div>
+      <div class="editor-body">
+        <div class="line-nums" id="lineNums"><span class="line-num">1</span></div>
+        <textarea id="code" spellcheck="false" placeholder="# Paste your code here, then hit ⌃↵ or click Review..."></textarea>
+      </div>
+      <div class="editor-footer">
+        <span id="charCount">0 chars</span>
+        <span id="lineCount">1 line</span>
+      </div>
+    </div>
+ 
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="run-btn" id="runBtn" onclick="runReview()">
+        <span id="btnIcon">⚡</span>
+        <span id="btnText">Review with Llama 3.1</span>
+      </button>
+      <button class="stop-btn" id="stopBtn" onclick="stopReview()" style="display:none">⏹ Stop</button>
+    </div>
+ 
+  </div>
+ 
+  <div class="panel-right">
+ 
+    <div class="score-wrap">
+      <svg width="110" height="110" viewBox="0 0 110 110">
+        <circle cx="55" cy="55" r="40" fill="none" stroke="#e0ddd6" stroke-width="6.5"/>
+        <circle id="scoreArc" cx="55" cy="55" r="40" fill="none"
+          stroke="#e0ddd6" stroke-width="6.5"
+          stroke-dasharray="251.3" stroke-dashoffset="251.3"
+          stroke-linecap="round" transform="rotate(-90 55 55)"
+          style="transition:stroke-dashoffset 1.2s ease,stroke .4s ease"/>
+        <text id="scoreNum" x="55" y="51" text-anchor="middle"
+          font-family="Fraunces,serif" font-size="22" font-weight="600" fill="#0f0e0c">—</text>
+        <text x="55" y="66" text-anchor="middle"
+          font-family="Geist,sans-serif" font-size="9" fill="#9a9590">/ 100</text>
+      </svg>
+      <div class="score-meta" id="scoreMeta">awaiting first review</div>
+      <div class="score-grade" id="scoreGrade"></div>
+    </div>
+ 
+    <div class="sec-label">weakness heatmap</div>
+    <div id="heatmap"><div class="empty-box">submit a review to start tracking</div></div>
+ 
+    <div class="sec-label" style="margin-top:18px">session history
+      <span id="sessCount" style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--ink3)"></span>
+    </div>
+    <div class="sess-list" id="sessList">
+      <div class="sess-empty">no sessions yet</div>
+    </div>
+ 
+  </div>
+</div>
+ 
+<!-- REVIEW OUTPUT -->
+<div class="review-section fade-up" id="reviewSection">
+  <div class="review-header">
+    <div class="review-title">
+      Code Review
+      <span class="review-lang-badge" id="reviewLangBadge"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="ws-badge" id="wsBadge" style="display:none"></span>
+      <div class="review-actions">
+        <button class="action-btn" onclick="copyReview()">📋 Copy</button>
+        <button class="action-btn" onclick="exportPDF()">⬇ Export</button>
+        <button class="action-btn" onclick="clearReview()">✕ Clear</button>
+      </div>
+    </div>
+  </div>
+  <div class="memory-ctx" id="memCtx" style="display:none">
+    <div class="memory-hdr" onclick="toggleMem()">
+      <span>🧠 memory context from past sessions</span>
+      <span id="memArrow">▼</span>
+    </div>
+    <div class="memory-body" id="memBody"></div>
+  </div>
+  <div class="review-body" id="reviewBody"><span class="cursor-blink"></span></div>
+ 
+  <!-- FIXED CODE -->
+  <div class="fixed-section" id="fixedCodeSection">
+    <div class="fixed-header">
+      <div class="fixed-label">
+        ✨ Fixed Code
+        <span class="fixed-sub">corrected by Llama 3.1</span>
+      </div>
+      <button class="fixed-copy" onclick="copyFixed()">copy</button>
+    </div>
+    <div class="fixed-chrome">
+      <div class="fixed-bar">
+        <div class="fixed-dot" style="background:#ff5f57"></div>
+        <div class="fixed-dot" style="background:#febc2e"></div>
+        <div class="fixed-dot" style="background:#28c840"></div>
+        <span class="fixed-meta-label" id="fixedMeta">fixed.py</span>
+      </div>
+      <pre id="fixedCode"></pre>
+    </div>
+  </div>
+</div>
+ 
+<footer class="footer">
+  <div class="foot-cell"><span class="foot-icon">🧠</span><div><div class="foot-name">Llama 3.1 8B</div><div class="foot-type">local model</div></div></div>
+  <div class="foot-cell"><span class="foot-icon">🗄</span><div><div class="foot-name">ChromaDB</div><div class="foot-type">vector store</div></div></div>
+  <div class="foot-cell"><span class="foot-icon">📡</span><div><div class="foot-name">all-MiniLM-L6</div><div class="foot-type">embedder</div></div></div>
+  <div class="foot-cell"><span class="foot-icon">⚙</span><div><div class="foot-name">LangChain 0.3</div><div class="foot-type">agent framework</div></div></div>
+</footer>
+ 
+</div>
+<div class="toast" id="toast"></div>
+ 
+<script>
+/* cursor */
+const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px'});
+(function a(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(a)})();
+document.querySelectorAll('a,button,.mode-card,.lang-btn').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{cur.style.width='5px';cur.style.height='5px';ring.style.width='48px';ring.style.height='48px';ring.style.opacity='.7'});
+  el.addEventListener('mouseleave',()=>{cur.style.width='9px';cur.style.height='9px';ring.style.width='34px';ring.style.height='34px';ring.style.opacity='.35'});
+});
+
+/* ── helpers ── */
+function stripFixedCode(text){
+  return text.replace(/\n?## Fixed Code[\s\S]*/,'').trim();
+}
+
+function extractFixedCode(text){
+  var m=text.match(/## Fixed Code\s*\n```[\w]*\n([\s\S]*?)```/);
+  if(m) return m[1].trim();
+  var blocks=text.match(/```[\w]*\n([\s\S]*?)```/g);
+  if(!blocks||!blocks.length) return '';
+  var last=blocks[blocks.length-1];
+  return last.replace(/```[\w]*\n?/g,'').replace(/```$/,'').trim();
+}
+
+function extractWeakSpot(text){
+  var m=text.match(/## Weak Spot Detected\s*\n`([^`]+)`/);
+  if(m) return m[1].trim().slice(0,40);
+  m=text.match(/[Ww]eak [Ss]pot[^:\n]*[:\s]+([^\n`]+)/);
+  if(m) return m[1].replace(/`/g,'').trim().slice(0,40);
+  return 'general';
+}
+ 
+const API='http://localhost:8000';
+const LANG_COLORS={Python:'#3b82f6',JavaScript:'#f59e0b',TypeScript:'#3b82f6',Java:'#ef4444','C++':'#8b5cf6',Go:'#06b6d4',Rust:'#f97316',Swift:'#f43f5e'};
+const LANG_EXT={Python:'py',JavaScript:'js',TypeScript:'ts',Java:'java','C++':'cpp',Go:'go',Rust:'rs',Swift:'swift'};
+const FACTS=[
+  "Llama 3.1 8B was trained on 15 trillion tokens — more than most humans read in 1000 lifetimes.",
+  "ChromaDB finds meaning, not just matching words. Two sentences can be 95% similar with zero shared words.",
+  "RAG was invented at Meta in 2020. It now powers every serious AI product you use daily.",
+  "all-MiniLM-L6-v2 compresses any sentence into 384 numbers yet captures deep semantic meaning.",
+  "Running LLMs locally = zero API cost, zero latency, zero data privacy risk.",
+  "Cosine similarity: 'similar' means geometrically close — neighbours on a map in 384 dimensions.",
+  "LangChain's pipe operator (|) is inspired by Unix shell pipes.",
+  "Llama 3.1 outperforms GPT-3.5 on most benchmarks despite being 10× smaller.",
+  "'Attention Is All You Need' (2017) — the paper behind every LLM you use today.",
+  "ChromaDB stores the semantic fingerprint of your past mistakes.",
+];
+let factIdx=Math.floor(Math.random()*FACTS.length),selLang='Python',selMode='roast';
+let sessions=[],fullReviewText='',fixedCodeText='',currentStreamId=null,abortController=null;
+ 
+function nextFact(){factIdx=(factIdx+1)%FACTS.length;document.getElementById('factText').textContent=FACTS[factIdx]}
+document.getElementById('factText').textContent=FACTS[factIdx];
+setInterval(nextFact,9000);
+ 
+document.getElementById('langRow').addEventListener('click',e=>{
+  const b=e.target.closest('.lang-btn');if(!b)return;
+  document.querySelectorAll('.lang-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');selLang=b.dataset.lang;updateMeta();
+});
+document.getElementById('modeGrid').addEventListener('click',e=>{
+  const c=e.target.closest('.mode-card');if(!c)return;
+  document.querySelectorAll('.mode-card').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');selMode=c.dataset.mode;updateMeta();
+});
+function updateMeta(){
+  const modeName=document.querySelector('.mode-card.active .mode-label').textContent;
+  const ext=LANG_EXT[selLang]||'py';
+  document.getElementById('chromeMeta').textContent=`mentor.${ext} · ${selLang} · ${modeName}`;
+  document.getElementById('fixedMeta').textContent=`fixed.${ext}`;
+}
+ 
+const ta=document.getElementById('code'),ln=document.getElementById('lineNums');
+function updateEditor(){
+  const lines=ta.value.split('\n');
+  ln.innerHTML=lines.map((_,i)=>`<span class="line-num">${i+1}</span>`).join('');
+  document.getElementById('charCount').textContent=`${ta.value.length} chars`;
+  document.getElementById('lineCount').textContent=`${lines.length} line${lines.length!==1?'s':''}`;
+}
+ta.addEventListener('input',updateEditor);
+ta.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runReview();}
+  if(e.key==='Tab'){e.preventDefault();const s=ta.selectionStart;ta.value=ta.value.substring(0,s)+'    '+ta.value.substring(ta.selectionEnd);ta.selectionStart=ta.selectionEnd=s+4;updateEditor();}
+});
+updateEditor();
+ 
+function setScore(s){
+  const circ=251.3,offset=circ*(1-s/100);
+  const color=s>=80?'#22c55e':s>=55?'#f59e0b':'#ef4444';
+  const grade=s>=90?'Excellent ✦':s>=80?'Good':s>=60?'Needs work':'Critical issues';
+  document.getElementById('scoreArc').style.strokeDashoffset=offset;
+  document.getElementById('scoreArc').style.stroke=color;
+  document.getElementById('scoreNum').textContent=s;
+  document.getElementById('scoreMeta').textContent='code quality score';
+  document.getElementById('scoreGrade').textContent=grade;
+  document.getElementById('scoreGrade').style.color=color;
+}
+ 
+function renderHeatmap(items){
+  if(!items||!items.length){document.getElementById('heatmap').innerHTML='<div class="empty-box">submit a review to start tracking</div>';return;}
+  const max=items[0][1];
+  document.getElementById('heatmap').innerHTML=items.map(([name,count],i)=>{
+    const pct=Math.round((count/max)*100);
+    const op=Math.max(.3,1-i*.15).toFixed(2);
+    return `<div class="heat-item"><div class="heat-top"><span class="heat-name">${name}</span><span class="heat-cnt">${count}×</span></div><div class="heat-track"><div class="heat-bar" style="width:${pct}%;opacity:${op}"></div></div></div>`;
+  }).join('');
+}
+ 
+function renderSessions(){
+  const el=document.getElementById('sessList');
+  document.getElementById('sessCount').textContent=sessions.length?`(${sessions.length})`:'';
+  if(!sessions.length){el.innerHTML='<div class="sess-empty">no sessions yet</div>';return;}
+  el.innerHTML=[...sessions].reverse().slice(0,6).map(s=>{
+    const lc=LANG_COLORS[s.lang]||'#7c3aed';
+    const sc=s.score>=80?'#22c55e':s.score>=55?'#f59e0b':'#ef4444';
+    return `<div class="sess-row"><span class="sess-badge" style="background:${lc}18;color:${lc}">${s.lang.slice(0,2).toUpperCase()}</span><span class="sess-spot">${s.spot}</span><span class="sess-score" style="color:${sc}">${s.score}</span></div>`;
+  }).join('');
+}
+ 
+async function loadStats(){try{const r=await fetch(`${API}/stats`);const d=await r.json();renderHeatmap(d.heatmap||[]);}catch(e){}}
+loadStats();
+ 
+function toggleMem(){
+  const b=document.getElementById('memBody'),a=document.getElementById('memArrow');
+  const open=b.style.display==='none'||!b.style.display;
+  b.style.display=open?'block':'none';a.textContent=open?'▲':'▼';
+}
+ 
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+function copyReview(){navigator.clipboard.writeText(fullReviewText);showToast('Review copied')}
+function copyFixed(){navigator.clipboard.writeText(fixedCodeText);showToast('Fixed code copied')}
+function clearReview(){document.getElementById('reviewSection').style.display='none';fullReviewText='';fixedCodeText=''}
+ 
+function exportPDF(){
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=Geist+Mono:wght@400&family=Geist:wght@400&display=swap" rel="stylesheet">
+  <style>body{font-family:'Geist',sans-serif;max-width:720px;margin:40px auto;color:#0f0e0c;line-height:1.7}h1{font-family:'Fraunces',serif;font-size:22px;font-weight:400;margin-bottom:4px;letter-spacing:-.03em}pre{background:#f0ede6;padding:14px;border-radius:8px;font-family:'Geist Mono',monospace;font-size:12px;white-space:pre-wrap}h2{font-family:'Fraunces',serif;font-size:15px;font-weight:400;margin:16px 0 6px;color:#5b21b6}p,li{color:#4a4740;font-size:13px}ul{padding-left:18px}.meta{font-family:'Geist Mono',monospace;font-size:11px;color:#9a9590;margin-bottom:20px}</style>
+  </head><body>
+  <h1>CodePulse — Code Review</h1>
+  <div class="meta">${selLang} · ${new Date().toLocaleString()}</div>
+  <h2>Original Code</h2><pre>${ta.value.replace(/</g,'&lt;')}</pre>
+  <h2>Review</h2>${document.getElementById('reviewBody').innerHTML}
+  ${fixedCodeText?`<h2>Fixed Code</h2><pre>${fixedCodeText.replace(/</g,'&lt;')}</pre>`:''}
+  </body></html>`);
+  win.document.close();setTimeout(()=>win.print(),500);
+}
+ 
+async function stopReview(){
+  if(abortController)abortController.abort();
+  if(currentStreamId){try{await fetch(`${API}/review/cancel/${currentStreamId}`,{method:'POST'})}catch(e){}}
+  resetBtn();showToast('Review stopped');
+}
+ 
+function resetBtn(){
+  const sp=document.getElementById('btnIcon');
+  if(sp&&sp.className==='spin')sp.outerHTML='<span id="btnIcon">⚡</span>';
+  document.getElementById('btnText').textContent='Review with Llama 3.1';
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('stopBtn').style.display='none';
+}
+ 
+async function runReview(){
+  const code=ta.value.trim();
+  if(!code){showToast('Paste some code first');ta.focus();return;}
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;
+  document.getElementById('stopBtn').style.display='block';
+  document.getElementById('btnIcon').outerHTML='<span class="spin" id="btnIcon"></span>';
+  document.getElementById('btnText').textContent='Llama 3.1 is thinking...';
+  const rs=document.getElementById('reviewSection'),rb=document.getElementById('reviewBody');
+  rs.style.display='block';rb.innerHTML='<span class="cursor-blink"></span>';
+  document.getElementById('fixedCodeSection').style.display='none';
+  document.getElementById('wsBadge').style.display='none';
+  document.getElementById('memCtx').style.display='none';
+  rs.scrollIntoView({behavior:'smooth',block:'start'});
+  const lc=LANG_COLORS[selLang]||'#7c3aed';
+  document.getElementById('reviewLangBadge').textContent=selLang;
+  document.getElementById('reviewLangBadge').style.cssText=`background:${lc}18;color:${lc}`;
+  fullReviewText='';fixedCodeText='';
+  abortController=new AbortController();
+  try{
+    const resp=await fetch(`${API}/review/stream`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,language:selLang,mode:selMode}),signal:abortController.signal});
+    currentStreamId=resp.headers.get('X-Stream-Id');
+    const reader=resp.body.getReader(),decoder=new TextDecoder();
+    let buffer='';
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const lines=buffer.split('\n');buffer=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data:'))continue;
+        try{
+          const data=JSON.parse(line.slice(5).trim());
+          if(data.token){
+            fullReviewText+=data.token;
+            rb.innerHTML=marked.parse(stripFixedCode(fullReviewText))+'<span class="cursor-blink"></span>';
+            var fc=extractFixedCode(fullReviewText);
+            if(fc){fixedCodeText=fc;document.getElementById('fixedCodeSection').style.display='block';document.getElementById('fixedCode').textContent=fc;}
+          }
+          if(data.done){
+            rb.innerHTML=marked.parse(stripFixedCode(fullReviewText));
+            var ws=extractWeakSpot(fullReviewText);
+            document.getElementById('wsBadge').textContent='⚠ '+ws;
+            document.getElementById('wsBadge').style.display='inline-flex';
+            if(data.past&&!data.past.includes('None yet')){document.getElementById('memCtx').style.display='block';document.getElementById('memBody').textContent=data.past;}
+            setScore(data.score);
+            sessions.push({lang:selLang,spot:ws,score:data.score});
+            renderSessions();await loadStats();
+          }
+          if(data.cancelled||data.error)break;
+        }catch(e){}
+      }
+    }
+  }catch(e){
+    if(e.name!=='AbortError')rb.innerHTML=`<p style="color:var(--red)">Could not reach API. Is uvicorn running on port 8000?</p>`;
+  }finally{resetBtn();currentStreamId=null;abortController=null;}
+}
+</script>
+</body>
+</html>
